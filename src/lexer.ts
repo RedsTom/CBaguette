@@ -24,28 +24,17 @@ export interface Token {
     column: number;
 }
 
-export class CLexer {
-    private code: string;
-    private position: number = 0;
-    private line: number = 1;
-    private column: number = 1;
-    private translationTable: Record<string, string>;
-    private isCompileMode: boolean;
-    private keywords: Set<string>;
+// Classe de base pour les lexers
+class BaseLexer {
+    protected code: string;
+    protected position: number = 0;
+    protected line: number = 1;
+    protected column: number = 1;
+    protected keywords: Set<string>;
 
-    constructor(code: string, isCompileMode: boolean = false) {
+    constructor(code: string) {
         this.code = code;
-        this.isCompileMode = isCompileMode;
-
-        // Déterminer la table de traduction en fonction du mode
-        this.translationTable = isCompileMode ? reversedTable : table;
-
-        // Créer un ensemble de mots-clés à partir de la table appropriée
-        this.keywords = new Set(
-            isCompileMode
-                ? Object.values(this.translationTable)
-                : Object.keys(this.translationTable)
-        );
+        this.keywords = new Set();
     }
 
     public tokenize(): Token[] {
@@ -61,7 +50,7 @@ export class CLexer {
         return tokens;
     }
 
-    private nextToken(): Token | null {
+    protected nextToken(): Token | null {
         if (this.position >= this.code.length) {
             return null;
         }
@@ -106,7 +95,7 @@ export class CLexer {
         }
 
         // Identifiants et mots-clés
-        if (/[a-zA-Z_]/.test(char)) {
+        if (/[a-zA-Z_éèêëàâäôöùûüÿçÉÈÊËÀÂÄÔÖÙÛÜŸÇ]/.test(char)) {
             return this.readIdentifierOrKeyword(startLine, startColumn);
         }
 
@@ -114,7 +103,7 @@ export class CLexer {
         return this.readOperatorOrPunctuation(startLine, startColumn);
     }
 
-    private readWhitespace(startLine: number, startColumn: number): Token {
+    protected readWhitespace(startLine: number, startColumn: number): Token {
         let value = '';
 
         while (this.position < this.code.length && /\s/.test(this.peek())) {
@@ -139,7 +128,7 @@ export class CLexer {
         };
     }
 
-    private readBlockComment(startLine: number, startColumn: number): Token {
+    protected readBlockComment(startLine: number, startColumn: number): Token {
         let value = '';
         value += this.advance(); // '/'
         value += this.advance(); // '*'
@@ -161,7 +150,7 @@ export class CLexer {
         };
     }
 
-    private readLineComment(startLine: number, startColumn: number): Token {
+    protected readLineComment(startLine: number, startColumn: number): Token {
         let value = '';
         value += this.advance(); // '/'
         value += this.advance(); // '/'
@@ -178,7 +167,7 @@ export class CLexer {
         };
     }
 
-    private readPreprocessor(startLine: number, startColumn: number): Token {
+    protected readPreprocessor(startLine: number, startColumn: number): Token {
         let value = '';
         value += this.advance(); // '#'
 
@@ -206,7 +195,7 @@ export class CLexer {
         };
     }
 
-    private readString(startLine: number, startColumn: number): Token {
+    protected readString(startLine: number, startColumn: number): Token {
         let value = '';
         value += this.advance(); // '"'
 
@@ -233,7 +222,7 @@ export class CLexer {
         };
     }
 
-    private readChar(startLine: number, startColumn: number): Token {
+    protected readChar(startLine: number, startColumn: number): Token {
         let value = '';
         value += this.advance(); // '\''
 
@@ -260,7 +249,7 @@ export class CLexer {
         };
     }
 
-    private readNumber(startLine: number, startColumn: number): Token {
+    protected readNumber(startLine: number, startColumn: number): Token {
         let value = '';
 
         // Nombres hexadécimaux
@@ -323,10 +312,10 @@ export class CLexer {
         };
     }
 
-    private readIdentifierOrKeyword(startLine: number, startColumn: number): Token {
+    protected readIdentifierOrKeyword(startLine: number, startColumn: number): Token {
         let value = '';
 
-        while (this.position < this.code.length && /[a-zA-Z0-9_]/.test(this.peek())) {
+        while (this.position < this.code.length && /[a-zA-Z0-9_éèêëàâäôöùûüÿçÉÈÊËÀÂÄÔÖÙÛÜŸÇ]/.test(this.peek())) {
             value += this.advance();
         }
 
@@ -341,7 +330,7 @@ export class CLexer {
         };
     }
 
-    private readOperatorOrPunctuation(startLine: number, startColumn: number): Token {
+    protected readOperatorOrPunctuation(startLine: number, startColumn: number): Token {
         let value = this.advance();
 
         // Opérateurs composés de deux caractères
@@ -369,7 +358,7 @@ export class CLexer {
         };
     }
 
-    private advance(): string {
+    protected advance(): string {
         if (this.position >= this.code.length) {
             return '';
         }
@@ -387,7 +376,7 @@ export class CLexer {
         return char;
     }
 
-    private peek(offset: number = 0): string {
+    protected peek(offset: number = 0): string {
         const pos = this.position + offset;
 
         if (pos >= this.code.length) {
@@ -397,7 +386,7 @@ export class CLexer {
         return this.code[pos];
     }
 
-    private isWhitespaceBeforeCurrent(): boolean {
+    protected isWhitespaceBeforeCurrent(): boolean {
         let pos = this.position - 1;
 
         while (pos >= 0 && this.code[pos] !== '\n') {
@@ -410,7 +399,7 @@ export class CLexer {
         return true;
     }
 
-    private isOperator(value: string): boolean {
+    protected isOperator(value: string): boolean {
         const operators = [
             '+', '-', '*', '/', '%', '=', '!', '<', '>', '&', '|', '^', '~',
             '++', '--', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=',
@@ -421,32 +410,80 @@ export class CLexer {
     }
 }
 
-// Fonction principale pour le lexing
-export function lexer(code: string, isCompileMode: boolean = false): string[] {
-    const cLexer = new CLexer(code, isCompileMode);
-    const tokens = cLexer.tokenize();
-
-    // Traiter les tokens et transformer les mots-clés selon le mode
-    return processTokens(tokens, isCompileMode);
+// Lexer spécifique pour le code C
+export class CLexer extends BaseLexer {
+    constructor(code: string) {
+        super(code);
+        // Définir les mots-clés C
+        this.keywords = new Set(Object.keys(table));
+    }
 }
 
-// Traitement des tokens pour remplacer les mots-clés
-function processTokens(tokens: Token[], isCompileMode: boolean): string[] {
-    const translationTable = isCompileMode ? reversedTable : table;
+// Lexer spécifique pour le code C🥖
+export class BaguetteLexer extends BaseLexer {
+    constructor(code: string) {
+        super(code);
+        // Définir les mots-clés C🥖
+        this.keywords = new Set(Object.keys(reversedTable));
+    }
+}
+
+// Fonction pour traduire le code C vers C🥖
+export function translateCToBaguette(code: string): string {
+    const cLexer = new CLexer(code);
+    const tokens = cLexer.tokenize();
+    return processTokensForTranslation(tokens);
+}
+
+// Fonction pour compiler le code C🥖 vers C
+export function compileBaguetteToC(code: string): string {
+    const baguetteLexer = new BaguetteLexer(code);
+    const tokens = baguetteLexer.tokenize();
+    return processTokensForCompilation(tokens);
+}
+
+// Traitement des tokens pour la traduction C -> C🥖
+function processTokensForTranslation(tokens: Token[]): string {
     const result: string[] = [];
 
     for (const token of tokens) {
         if (token.type === TokenType.KEYWORD) {
-            // Remplacer uniquement les mots-clés
-            const translated = translationTable[token.value as keyof typeof translationTable];
-            result.push(translated || token.value);
+            // Remplacer uniquement les mots-clés C par leurs équivalents C🥖
+            const translated = table[token.value];
+            if (translated) {
+                result.push(translated);
+            } else {
+                result.push(token.value);
+            }
         } else {
             // Conserver les autres tokens tels quels
             result.push(token.value);
         }
     }
 
-    return result;
+    return tokensToString(result);
+}
+
+// Traitement des tokens pour la compilation C🥖 -> C
+function processTokensForCompilation(tokens: Token[]): string {
+    const result: string[] = [];
+
+    for (const token of tokens) {
+        if (token.type === TokenType.KEYWORD) {
+            // Remplacer uniquement les mots-clés C🥖 par leurs équivalents C
+            const compiled = reversedTable[token.value];
+            if (compiled) {
+                result.push(compiled);
+            } else {
+                result.push(token.value);
+            }
+        } else {
+            // Conserver les autres tokens tels quels
+            result.push(token.value);
+        }
+    }
+
+    return tokensToString(result);
 }
 
 // Fonction pour reconstituer le code à partir des tokens
