@@ -20,7 +20,7 @@ C🥖 est un transpilateur qui permet de programmer en C mais avec une syntaxe f
 
 ```bash
 # Cloner le dépôt
-git clone https://github.com/votre-compte/cbaguette.git
+git clone https://github.com/RedsTom/CBaguette.git
 cd cbaguette
 
 # Installer les dépendances
